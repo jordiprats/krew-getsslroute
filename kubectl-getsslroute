@@ -1,0 +1,28 @@
+#!/bin/bash
+
+if [ -z "$1" ];
+then
+  echo "Usage getsslroute <SSL serial>"
+  exit 1
+fi
+
+SEARCH_SERIAL=$(echo $1 | tr [A-Z] [a-z])
+
+NS_LIST=$(kubectl get ns -o jsonpath='{.items[*].metadata.name}')
+
+for NS in $NS_LIST;
+do
+  ROUTE_LIST=$(kubectl get route -n $NS -o jsonpath='{.items[*].metadata.name}')
+  for ROUTE in $ROUTE_LIST;
+  do
+    if [ ! -z "$(kubectl get route $ROUTE -n $NS -o jsonpath='{.spec.tls.certificate}')" ];
+    then
+      ROUTE_SERIAL=$(kubectl get route $ROUTE -n $NS -o jsonpath='{.spec.tls.certificate}' | openssl x509 -noout -serial | cut -f 2 -d= | tr [A-Z] [a-z])
+
+      if [ "${SEARCH_SERIAL}" == "${ROUTE_SERIAL}" ];
+      then
+        echo "$NS/$ROUTE"
+      fi
+    fi
+  done
+done
